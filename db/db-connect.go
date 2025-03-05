@@ -3,20 +3,21 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"github.com/kmakasheva/todo-list-project/logger"
+	"log"
 	"os"
 	"path"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func InitDB() (string, error) {
+func PathToDB() (string, error) {
 	appPath := os.Getenv("TODO_DBFILE")
 
 	if appPath == "" {
 		nowPath, err := os.Getwd()
 		if err != nil {
-			fmt.Println("Error getting current working directory")
-			return "", err
+			return "", fmt.Errorf("error getting current working directory: %w", err)
 		}
 		appPath = nowPath
 	}
@@ -28,16 +29,15 @@ func InitDB() (string, error) {
 func OpenDB(dbFile string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while opening db %w", err)
 	}
 	return db, nil
 }
 
-func CreateDB() {
-	dbFile, err := InitDB()
+func CreateDB() *sql.DB {
+	dbFile, err := PathToDB()
 	if err != nil {
-		//TODO: LOGGER ERROR
-		return
+		log.Fatalf("Error while initializing db")
 	}
 	_, err = os.Stat(dbFile)
 
@@ -46,33 +46,34 @@ func CreateDB() {
 		if os.IsNotExist(err) {
 			install = true
 		} else {
-			fmt.Println(err)
-			return
+			logger.Log.Error("error:", err)
+			os.Exit(1)
 		}
 	}
 
 	_, err = os.Create(dbFile)
 	if err != nil {
-		fmt.Println("Error creating database file")
-		return
+		logger.Log.Error("Error creating database file", err)
+		os.Exit(1)
 	}
 
 	db, err := OpenDB(dbFile)
 	if err != nil {
-		// TODO: LOGGER ERROR
+		logger.Log.Error("error while connection to db")
+		os.Exit(1)
 	}
-	defer db.Close()
 
 	_, err = db.Exec(CreateTableQuery)
 	if err != nil {
-		fmt.Println("Error creating table:", err)
-		return
+		logger.Log.Error("Error creating table:", err)
+		os.Exit(1)
 	}
 	if install {
 		_, err = db.Exec(CreateIndex)
 		if err != nil {
-			fmt.Println("Error creating index by date:", err)
-			return
+			logger.Log.Error("Error creating index by date:", err)
+			os.Exit(1)
 		}
 	}
+	return db
 }

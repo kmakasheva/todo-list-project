@@ -15,7 +15,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 	dateTime, err := time.Parse(layout, date)
 	var nextDate time.Time
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error while parsing date %w", err)
 	}
 
 	if repeat == "" || now.Format(layout) == "" || date == "" {
@@ -40,11 +40,10 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		if len(value) == 2 {
 			dNumber, err := strconv.Atoi(value[1])
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("error while converting str to int %w", err)
 			}
 			if dNumber <= 0 || dNumber > 366 {
-				fmt.Println("превышен максимально допустимый интервал")
-				return "", err
+				return "", errors.New("превышен максимально допустимый интервал")
 			}
 			nextDate = dateTime.AddDate(0, 0, dNumber)
 			nextDateStr := nextDate.Format(layout)
@@ -62,30 +61,20 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		if len(value) == 2 {
 			var res []time.Time
 			var min time.Time
-			//dayOfWeek, err := strconv.Atoi(value[1])
-			//fmt.Printf("mya sagan %d\n", dayOfWeek)
-			//if err != nil {
-			//	return "", err
-			//}
-			//if dayOfWeek >= 1 && dayOfWeek <= 7 {
 			nextDate = dateTime
 			daysOfWeek := strings.Split(value[1], ",")
 			for i := 0; i < len(daysOfWeek); i++ {
 				dayOfWeekInt, err := strconv.Atoi(daysOfWeek[i])
 				if err != nil {
-					return "", err
+					return "", fmt.Errorf("error while converting str to int in days of week %w", err)
 				}
 				if dayOfWeekInt >= 1 && dayOfWeekInt <= 7 {
 					if now.Format(layout) > dateTime.Format(layout) {
 						for now.Format(layout) > nextDate.Format(layout) {
 							nextDate = nextDate.AddDate(0, 0, 1)
-							//time.Sleep(5 * time.Second)
-							//fmt.Printf("AAAnextDate: %v, int: %d dayOfweek: %d\n", nextDate, int(nextDate.Weekday())+1, dayOfWeekInt)
 						}
 						for int(nextDate.Weekday())+1 != dayOfWeekInt {
 							nextDate = nextDate.AddDate(0, 0, 1)
-							//time.Sleep(5 * time.Second)
-							//fmt.Printf("BBBnextDate: %v, int: %d dayOfweek: %d\n", nextDate, int(nextDate.Weekday())+1, dayOfWeekInt)
 						}
 						if int(nextDate.Weekday())+1 == dayOfWeekInt {
 							res = append(res, nextDate)
@@ -93,8 +82,6 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 					} else {
 						for int(nextDate.Weekday())+1 != dayOfWeekInt {
 							nextDate = nextDate.AddDate(0, 0, 1)
-							//time.Sleep(5 * time.Second)
-							//fmt.Printf("nextDate: %v, int: %d dayOfweek: %d\n", nextDate, int(nextDate.Weekday())+1, dayOfWeekInt)
 						}
 						if int(nextDate.Weekday())+1 == dayOfWeekInt {
 							res = append(res, nextDate)
@@ -113,9 +100,6 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 			}
 			nextDate = min.AddDate(0, 0, 1)
 			return nextDate.Format(layout), nil
-			//} else {
-			//	return "", errors.New("Invalid weekday format")
-			//}
 
 		} else {
 			return "", errors.New("enter should be in format 'w' weeks number")
@@ -134,7 +118,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 			for _, dayOfMonth := range daysOfMonth {
 				dayOfMonthInt, err := strconv.Atoi(dayOfMonth)
 				if err != nil || dayOfMonthInt < -2 || dayOfMonthInt > 31 {
-					return "", errors.New("enter should be in format 'm' days_number")
+					return "", fmt.Errorf("enter should be in format 'm' days_number: %w", err)
 				}
 				if dayOfMonthInt == -1 {
 					nextDate = nextDate.AddDate(0, 1, 0)
@@ -169,11 +153,11 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 				for _, dayOfMonth := range daysOfMonth {
 					monthInt, err := strconv.Atoi(month)
 					if err != nil || monthInt <= 0 || monthInt > 12 {
-						return "", errors.New("make sure you have entered correct months")
+						return "", fmt.Errorf("make sure you have entered correct months: %w", err)
 					}
 					dayOfMonthInt, err := strconv.Atoi(dayOfMonth)
 					if err != nil {
-						return "", errors.New("make sure you have entered correct days of months")
+						return "", fmt.Errorf("make sure you have entered correct days of months: %w", err)
 					}
 					for int(nextDate.Month()) != monthInt {
 						nextDate = nextDate.AddDate(0, 1, 0)

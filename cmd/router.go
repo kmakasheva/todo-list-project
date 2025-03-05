@@ -19,7 +19,7 @@ func SetupRouter() *mux.Router {
 
 	webDir := "./web/"
 	fileServer := http.FileServer(http.Dir(webDir))
-	r.PathPrefix("/").Handler(http.StripPrefix("/", fileServer)) // google why I should do this strip and prefix and why put at last line
+	r.PathPrefix("/").Handler(http.StripPrefix("/", fileServer))
 
 	return r
 }
