@@ -8,10 +8,10 @@ import (
 var Log *slog.Logger
 
 func InitLogger(env string) {
-	//TODO: передать конфиг а не просто локал
+	//TODO: передать конфиг а не просто локал (попозже создам config для себя)
 	Log = SetupLogger("local")
 
-	//TODO: передать конфиг а не просто локал
+	//TODO: передать конфиг а не просто локал (попозже создам config для себя)
 	Log = Log.With("env", "local")
 
 	//Log.Debug("debug messages are enabled")

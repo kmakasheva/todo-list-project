@@ -30,11 +30,6 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	//validate := validator.New()
-	//if err := validate.Struct(&task); err != nil {
-	//		http.Error(w, `{"error": "validation failed"}`, http.StatusBadRequest)
-	//		return
-	//	}
 	if task.Date == "" {
 		task.Date = time.Now().AddDate(0, 0, 0).Format("20060102")
 	}

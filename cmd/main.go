@@ -21,7 +21,7 @@ func main() {
 
 	r := SetupRouter()
 
-	//TODO:  передать конфиг а не просто локал
+	//TODO:  передать конфиг а не просто локал (сделаю для себя после сдачи проекта, уже дедлайн)
 	logger.InitLogger("local")
 
 	err := godotenv.Load()
