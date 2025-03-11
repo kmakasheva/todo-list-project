@@ -4,16 +4,20 @@ import (
 	"fmt"
 	"github.com/kmakasheva/todo-list-project/db"
 	"github.com/kmakasheva/todo-list-project/handlers"
+	"github.com/kmakasheva/todo-list-project/internal/config"
 	"github.com/kmakasheva/todo-list-project/logger"
-	"log"
+	"net/http"
 
 	//"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
-	"net/http"
 	"os"
 )
 
 func main() {
+	cfg := config.MustLoad()
+
+	Log := logger.SetupLogger(cfg.Env)
+
 	db := db.CreateDB()
 	defer db.Close()
 
@@ -21,17 +25,16 @@ func main() {
 
 	r := SetupRouter()
 
-	//TODO:  передать конфиг а не просто локал (сделаю для себя после сдачи проекта, уже дедлайн)
-	logger.InitLogger("local")
-
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file %v", err)
+		Log.Error("Error loading .env file %v", err)
+		os.Exit(1)
 	}
 	port := os.Getenv("TODO_PORT")
 	fmt.Printf("starting server on port %s\n", port)
 	err = http.ListenAndServe(":"+port, r)
 	if err != nil {
-		log.Fatalf("Error listening the port %v", err)
+		Log.Error("Error listening the port %v", err)
+		os.Exit(1)
 	}
 }
