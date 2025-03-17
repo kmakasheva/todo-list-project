@@ -4,16 +4,19 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/kmakasheva/todo-list-project/auth"
 	d "github.com/kmakasheva/todo-list-project/db"
 	"github.com/kmakasheva/todo-list-project/domain"
 	"github.com/kmakasheva/todo-list-project/logger"
 	"github.com/kmakasheva/todo-list-project/services"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
 
 var db *sql.DB
+var MYTOKEN string
 
 func InitDB(sqlDB *sql.DB) {
 	db = sqlDB
@@ -332,5 +335,52 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cotnent-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{})
+
+}
+
+func SignInHandler(w http.ResponseWriter, r *http.Request) {
+	if os.Getenv("TOD0_PASSWORDD") == "" {
+		http.Error(w, `{"error":"Пароль не установлен в переменных окружения"}`, http.StatusInternalServerError)
+		logger.Log.Error("Пароль не установлен в переменных окружения")
+		return
+	}
+	var request auth.PasswordRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, `{"error":"error while decoding inputted password"}`, http.StatusBadRequest)
+		logger.Log.Error("error while decoding inputted password")
+		return
+	}
+	if request.Password != os.Getenv("TOD0_PASSWORDD") {
+		http.Error(w, `{"error":"Неверный пароль"}`, http.StatusUnauthorized)
+		logger.Log.Error("error Неверный пароль")
+		return
+	}
+
+	token, err := auth.CreateJWT()
+	if err != nil {
+		http.Error(w, `{"error":"error getting cookie token"}`, http.StatusUnauthorized)
+		logger.Log.Error("error getting cookie token")
+		return
+	}
+
+	if token == "" {
+		http.Error(w, `{"error":"Ошибка при создании токена"}`, http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   2 * 60 * 60,
+		Secure:   false,
+	})
+	logger.Log.Info("Token установлен, пользователь вошел в систему")
+
+	MYTOKEN = token
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"Успешный вход", "token":"` + token + `"}`))
 
 }

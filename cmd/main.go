@@ -14,6 +14,12 @@ import (
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Error loading .env file %v", err)
+		os.Exit(1)
+	}
+
 	cfg := config.MustLoad()
 
 	Log := logger.SetupLogger(cfg.Env)
@@ -25,11 +31,6 @@ func main() {
 
 	r := SetupRouter()
 
-	err := godotenv.Load()
-	if err != nil {
-		Log.Error("Error loading .env file %v", err)
-		os.Exit(1)
-	}
 	port := os.Getenv("TODO_PORT")
 	fmt.Printf("starting server on port %s\n", port)
 	err = http.ListenAndServe(":"+port, r)
