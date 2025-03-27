@@ -16,7 +16,7 @@ func SetupRouter() *mux.Router {
 	r.HandleFunc("/api/task", middleware.Auth(handlers.DeleteTaskHandler)).Methods("DELETE")
 	r.HandleFunc("/api/tasks", middleware.Auth(handlers.GetTasksHandler))
 	r.HandleFunc("/api/nextdate", handlers.NextDateHandler)
-	r.HandleFunc("/api/task/done", middleware.Auth(handlers.DoneTaskHandler))
+	r.HandleFunc("/api/task/done", middleware.Auth(handlers.DoneTaskHandler)).Methods("POST")
 	r.HandleFunc("/api/signin", handlers.SignInHandler).Methods("POST")
 
 	webDir := "./web/"

@@ -304,8 +304,12 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"error while getting task by id"}`, http.StatusBadRequest)
 		return
 	}
+	logger.Log.Info("Task Date Before Parsing:", task.Date)
+
+	logger.Log.Info("NextDate input - now:", time.Now(), "task.Date:", task.Date, "task.Repeat:", task.Repeat)
 
 	if task.Repeat != "" {
+
 		updDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			http.Error(w, `{"error":"error while calculating a new date"}`, http.StatusBadRequest)
@@ -333,7 +337,7 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	w.Header().Set("Cotnent-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{})
 
 }

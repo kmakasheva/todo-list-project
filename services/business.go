@@ -3,227 +3,232 @@ package services
 import (
 	"errors"
 	"fmt"
-	"github.com/kmakasheva/todo-list-project/domain"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kmakasheva/todo-list-project/domain"
 )
 
-func NextDate(now time.Time, date string, repeat string) (string, error) {
-	layout := "20060102"
-	now = time.Date(2024, time.January, 26, 0, 0, 0, 0, time.UTC)
-	dateTime, err := time.Parse(layout, date)
-	var nextDate time.Time
+const layout = "20060102"
+
+func parseDate(date string) (time.Time, error) {
+	parsedDate, err := time.Parse(layout, date)
 	if err != nil {
-		return "", fmt.Errorf("error while parsing date %w", err)
+		return time.Time{}, fmt.Errorf("error parsing date: %w", err)
+	}
+	return parsedDate, nil
+}
+
+func NextDate(now time.Time, date, repeat string) (string, error) {
+	if repeat == "" || date == "" {
+		return "", errors.New("invalid input data")
 	}
 
-	if repeat == "" || now.Format(layout) == "" || date == "" {
-		return "", errors.New("make sure you have a valid data")
+	now = time.Date(2024, time.January, 26, 0, 0, 0, 0, time.UTC)
+
+	dateTime, err := parseDate(date)
+	if err != nil {
+		return "", err
 	}
 
-	if repeat[0] != 'd' && repeat[0] != 'y' && repeat[0] != 'w' && repeat[0] != 'm' {
-		return "", errors.New("the repeat enter is incorrect")
+	return getNextRepeatDate(dateTime, repeat)
+}
+
+func getNextRepeatDate(dateTime time.Time, repeat string) (string, error) {
+	now := time.Date(2024, time.January, 26, 0, 0, 0, 0, time.UTC)
+
+	switch repeat[0] {
+	case 'y':
+		return calculateYearly(dateTime, now), nil
+	case 'd':
+		return calculateDaily(dateTime, now, repeat)
+	case 'w':
+		return calculateWeekly(dateTime, now, repeat)
+	case 'm':
+		return calculateMonthly(dateTime, now, repeat)
+	default:
+		return "", errors.New("invalid repeat format")
 	}
+}
 
-	if repeat == "y" {
-		nextDate = dateTime.AddDate(1, 0, 0)
-		for nextDate.Format(layout) < now.Format(layout) {
-			nextDate = nextDate.AddDate(1, 0, 0)
-		}
-		return nextDate.Format(layout), nil
+func calculateYearly(dateTime, now time.Time) string {
+	dateTime = dateTime.AddDate(1, 0, 0)
+	for dateTime.Before(now) {
+		dateTime = dateTime.AddDate(1, 0, 0)
 	}
+	return dateTime.Format(layout)
+}
 
-	value := strings.Split(repeat, " ")
-
-	if value[0] == "d" {
-		if len(value) == 2 {
-			dNumber, err := strconv.Atoi(value[1])
-			if err != nil {
-				return "", fmt.Errorf("error while converting str to int %w", err)
-			}
-			if dNumber <= 0 || dNumber > 366 {
-				return "", errors.New("превышен максимально допустимый интервал")
-			}
-			nextDate = dateTime.AddDate(0, 0, dNumber)
-			nextDateStr := nextDate.Format(layout)
-			for nextDateStr <= now.Format(layout) {
-				dateTime = dateTime.AddDate(0, 0, dNumber)
-				nextDateStr = dateTime.Format(layout)
-			}
-			return nextDateStr, nil
-		} else {
-			return "", errors.New("enter should be in format 'd' days_number")
-		}
+func calculateDaily(dateTime, now time.Time, repeat string) (string, error) {
+	parts := strings.Split(repeat, " ")
+	if len(parts) != 2 {
+		return "", errors.New("invalid daily repeat format, expected 'd N'")
 	}
+	days, err := strconv.Atoi(parts[1])
+	if err != nil || days <= 0 || days > 366 {
+		return "", errors.New("invalid daily interval")
+	}
+	return getNextOccurrence(dateTime, now, days), nil
+}
 
-	if value[0] == "w" {
-		if len(value) == 2 {
-			var res []time.Time
-			var min time.Time
-			nextDate = dateTime
-			daysOfWeek := strings.Split(value[1], ",")
-			for i := 0; i < len(daysOfWeek); i++ {
-				dayOfWeekInt, err := strconv.Atoi(daysOfWeek[i])
-				if err != nil {
-					return "", fmt.Errorf("error while converting str to int in days of week %w", err)
-				}
-				if dayOfWeekInt >= 1 && dayOfWeekInt <= 7 {
-					if now.Format(layout) > dateTime.Format(layout) {
-						for now.Format(layout) > nextDate.Format(layout) {
-							nextDate = nextDate.AddDate(0, 0, 1)
-						}
-						for int(nextDate.Weekday())+1 != dayOfWeekInt {
-							nextDate = nextDate.AddDate(0, 0, 1)
-						}
-						if int(nextDate.Weekday())+1 == dayOfWeekInt {
-							res = append(res, nextDate)
-						}
-					} else {
-						for int(nextDate.Weekday())+1 != dayOfWeekInt {
-							nextDate = nextDate.AddDate(0, 0, 1)
-						}
-						if int(nextDate.Weekday())+1 == dayOfWeekInt {
-							res = append(res, nextDate)
-							nextDate = dateTime
-						}
-					}
-					min = res[0]
-					for _, v := range res {
-						if v.Format(layout) < min.Format(layout) {
-							min = v
-						}
-					}
-				} else {
-					return "", errors.New("make sure you have a valid date for week")
-				}
-			}
-			nextDate = min.AddDate(0, 0, 1)
-			return nextDate.Format(layout), nil
-
-		} else {
-			return "", errors.New("enter should be in format 'w' weeks number")
+func calculateWeekly(dateTime, now time.Time, repeat string) (string, error) {
+	parts := strings.Split(repeat, " ")
+	if len(parts) != 2 {
+		return "", errors.New("invalid weekly repeat format, expected 'w D1,D2,...'")
+	}
+	daysOfWeek, err := parseIntList(parts[1])
+	if err != nil {
+		return "", errors.New("invalid days of the week format")
+	}
+	for _, w := range daysOfWeek {
+		if w <= 0 || w > 7 {
+			return "", errors.New("invalid weekly format")
 		}
 	}
+	return getNextWeeklyOccurrence(dateTime, now, daysOfWeek), nil
+}
 
-	if value[0] == "m" {
-		if dateTime.Format(layout) < now.Format(layout) {
-			dateTime = now
+func calculateMonthly(dateTime, now time.Time, repeat string) (string, error) {
+	parts := strings.Split(repeat, " ")
+	if len(parts) < 2 || len(parts) > 3 {
+		return "", errors.New("invalid monthly repeat format")
+	}
+	daysOfMonth, err := parseIntList(parts[1])
+	if err != nil {
+		return "", errors.New("invalid days of month format")
+	}
+	for _, m := range daysOfMonth {
+		if m < -2 || m > 31 {
+			return "", errors.New("invalid days of month")
 		}
-		var res []time.Time
-		var min time.Time
-		if len(value) == 2 {
-			nextDate = dateTime.AddDate(0, 0, 1)
-			daysOfMonth := strings.Split(value[1], ",")
-			for _, dayOfMonth := range daysOfMonth {
-				dayOfMonthInt, err := strconv.Atoi(dayOfMonth)
-				if err != nil || dayOfMonthInt < -2 || dayOfMonthInt > 31 {
-					return "", fmt.Errorf("enter should be in format 'm' days_number: %w", err)
-				}
-				if dayOfMonthInt == -1 {
-					nextDate = nextDate.AddDate(0, 1, 0)
-					nextDate = nextDate.AddDate(0, 0, -nextDate.Day())
-					dayOfMonthInt = nextDate.Day()
-				} else if dayOfMonthInt == -2 {
-					nextDate = nextDate.AddDate(0, 1, 0)
-					nextDate = nextDate.AddDate(0, 0, -nextDate.Day()-1)
-					dayOfMonthInt = nextDate.Day()
-				}
-				for nextDate.Day() != dayOfMonthInt {
-					nextDate = nextDate.AddDate(0, 0, 1)
-				}
-				if nextDate.Day() == dayOfMonthInt {
-					res = append(res, nextDate)
-				}
-				nextDate = dateTime.AddDate(0, 0, 1)
-			}
-			min = res[0]
-			for _, v := range res {
-				if min.Format(layout) > v.Format(layout) {
-					min = v
-				}
-			}
-			return min.Format(layout), nil
+	}
+	var months []int
+	if len(parts) == 3 {
+		months, err = parseIntList(parts[2])
+		if err != nil {
+			return "", errors.New("invalid months format")
 		}
-		if len(value) == 3 {
-			nextDate = dateTime.AddDate(0, 0, 1)
-			daysOfMonth := strings.Split(value[1], ",")
-			months := strings.Split(value[2], ",")
-			for _, month := range months {
-				for _, dayOfMonth := range daysOfMonth {
-					monthInt, err := strconv.Atoi(month)
-					if err != nil || monthInt <= 0 || monthInt > 12 {
-						return "", fmt.Errorf("make sure you have entered correct months: %w", err)
-					}
-					dayOfMonthInt, err := strconv.Atoi(dayOfMonth)
-					if err != nil {
-						return "", fmt.Errorf("make sure you have entered correct days of months: %w", err)
-					}
-					for int(nextDate.Month()) != monthInt {
-						nextDate = nextDate.AddDate(0, 1, 0)
-					}
-					if int(nextDate.Month()) == monthInt {
-						for nextDate.Day() != dayOfMonthInt {
-							nextDate = nextDate.AddDate(0, 0, 1)
-						}
-						if nextDate.Day() == dayOfMonthInt && int(nextDate.Month()) == monthInt && nextDate.Format(layout) > now.Format(layout) {
-							res = append(res, nextDate)
-							nextDate = dateTime.AddDate(0, 0, 1)
-						} else if nextDate.Day() == dayOfMonthInt && int(nextDate.Month())-1 == monthInt &&
-							nextDate.AddDate(0, -1, 0).Format(layout) > now.Format(layout) {
-							res = append(res, nextDate.AddDate(0, -1, 0))
-							nextDate = dateTime.AddDate(0, 0, 1)
-						}
-					}
-				}
+	}
+	return getNextMonthlyOccurrence(dateTime, now, daysOfMonth, months), nil
+}
+
+func getNextOccurrence(dateTime, now time.Time, interval int) string {
+	dateTime = dateTime.AddDate(0, 0, interval)
+	for dateTime.Before(now) {
+		dateTime = dateTime.AddDate(0, 0, interval)
+	}
+	return dateTime.Format(layout)
+}
+
+func getNextWeeklyOccurrence(dateTime, now time.Time, daysOfWeek []int) string {
+	var possibleDates []time.Time
+	var closestPossibleDate time.Time
+	for !contains(daysOfWeek, int(dateTime.Weekday())+1) || dateTime.Before(now) {
+		dateTime = dateTime.AddDate(0, 0, 1)
+	}
+	possibleDates = append(possibleDates, dateTime)
+	closestPossibleDate = possibleDates[0]
+	for _, w := range possibleDates {
+		if closestPossibleDate.After(w) {
+			closestPossibleDate = w
+		}
+	}
+	closestPossibleDate = closestPossibleDate.AddDate(0, 0, 1)
+	return closestPossibleDate.Format(layout)
+}
+
+func getNextMonthlyOccurrence(dateTime, now time.Time, daysOfMonth, months []int) string {
+	var closestPossibleDate time.Time
+
+	for i := 0; i < 12; i++ {
+		// Пропускаем месяцы, если есть ограничения
+		if len(months) > 0 && !contains(months, int(dateTime.Month())) {
+			dateTime = dateTime.AddDate(0, 1, 0)
+			continue
+		}
+
+		possibleDates := getValidDays(dateTime, daysOfMonth)
+
+		for _, d := range possibleDates {
+			if d.After(now) && (closestPossibleDate.IsZero() || d.Before(closestPossibleDate)) {
+				closestPossibleDate = d
 			}
-			min = res[0]
-			for _, v := range res {
-				if v.Format(layout) < min.Format(layout) {
-					min = v
-				}
-			}
-			return min.Format(layout), nil
-		} else if len(value) != 2 && len(value) != 3 {
-			return "", errors.New("enter should be in format 'm' days_number month_number")
+		}
+
+		if !closestPossibleDate.IsZero() {
+			return closestPossibleDate.Format(layout)
+		}
+
+		dateTime = dateTime.AddDate(0, 1, 0)
+	}
+
+	return ""
+}
+
+func getValidDays(date time.Time, daysOfMonth []int) []time.Time {
+	var dates []time.Time
+	lastDay := lastDayOfMonth(date)
+
+	for _, d := range daysOfMonth {
+		day := d
+		if d == -1 {
+			day = lastDay
+		} else if d == -2 {
+			day = lastDay - 1
+		}
+
+		if day >= 1 && day <= lastDay {
+			dates = append(dates, time.Date(date.Year(), date.Month(), day, 0, 0, 0, 0, date.Location()))
 		}
 	}
 
-	return "", nil
+	return dates
+}
+
+func lastDayOfMonth(t time.Time) int {
+	t = t.AddDate(0, 1, 0)
+	t = t.AddDate(0, 0, -t.Day())
+	return t.Day()
+}
+
+func parseIntList(input string) ([]int, error) {
+	parts := strings.Split(input, ",")
+	var result []int
+	for _, part := range parts {
+		val, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, val)
+	}
+	return result, nil
+}
+
+func contains(slice []int, value int) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
 
 func ValidateTask(t domain.Task) error {
-	id, err := strconv.Atoi(t.ID)
-	if err != nil {
-		return errors.New("id seems problematic")
+	if _, err := strconv.Atoi(t.ID); err != nil {
+		return errors.New("invalid ID")
 	}
-	if id < 0 {
-		return errors.New("ID is not valid")
-	}
-	if _, err := time.Parse("20060102", t.Date); err != nil {
-		return errors.New("date is not valid")
+	if _, err := time.Parse(layout, t.Date); err != nil {
+		return errors.New("invalid date format")
 	}
 	if t.Title == "" {
 		return errors.New("title cannot be empty")
 	}
 	if t.Repeat == "" {
-		return errors.New("repeat is empty")
+		return errors.New("repeat field is empty")
 	}
-	if t.Repeat[0] != 'y' && t.Repeat[0] != 'm' && t.Repeat[0] != 'w' && t.Repeat[0] != 'd' {
+	if !strings.ContainsAny(t.Repeat[:1], "ymwd") {
 		return errors.New("invalid repeat format")
-	}
-	row := strings.Split(t.Repeat, " ")
-	if row[0] == "y" && len(row) != 1 {
-		return errors.New("only one year repeat is available")
-	}
-	if row[0] == "m" && len(row) > 3 {
-		return errors.New("incorrect repeat in months")
-	}
-	if row[0] == "w" && len(row) != 2 {
-		return errors.New("repeat in weeks is not valid")
-	}
-	if row[0] == "d" && len(row) != 2 {
-		return errors.New("repeat in days is not valid")
 	}
 	return nil
 }

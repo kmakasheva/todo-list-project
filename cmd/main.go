@@ -8,7 +8,6 @@ import (
 	"github.com/kmakasheva/todo-list-project/logger"
 	"net/http"
 
-	//"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"os"
 )
