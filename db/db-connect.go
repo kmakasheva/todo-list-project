@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func PathToDB() (string, error) {
@@ -27,7 +27,7 @@ func PathToDB() (string, error) {
 }
 
 func OpenDB(dbFile string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
 		return nil, fmt.Errorf("error while opening db %w", err)
 	}

@@ -10,14 +10,22 @@ RUN go mod download
 
 COPY . .
 
-RUN CC=gcc CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /todo-list ./cmd
+# Сборка бинарного файла в директории проекта
+RUN CC=gcc CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /todo-list-project/todo-list ./cmd
 
 # 2. Финальный минимальный образ
 FROM debian:bullseye
 
 WORKDIR /app
 
-COPY --from=builder /todo-list .
+# Копируем бинарный файл
+COPY --from=builder /todo-list-project/todo-list .
+
+# Копируем конфиг
 COPY --from=builder /todo-list-project/config ./config
 
+# Копируем .env (если он существует в контексте билда)
+COPY .env .env
+
+# Запуск приложения
 CMD ["/app/todo-list"]
