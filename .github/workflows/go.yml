@@ -26,7 +26,10 @@ jobs:
 
     - name: Set environment variables
       run: echo "PORT=7540" >> $GITHUB_ENV
-    
+
+    - name: Set up ENV
+      run: echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> $GITHUB_ENV
+
     - name: Start the server
       run: go run ./cmd/*.go & echo $! > server.pid
     
