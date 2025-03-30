@@ -303,9 +303,9 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"error while getting task by id"}`, http.StatusBadRequest)
 		return
 	}
-	logger.Log.Info("Task Date Before Parsing:", task.Date)
+	logger.Log.Info("Task Date Before Parsing:", slog.String("date", task.Date))
 
-	logger.Log.Info("NextDate input - now:", time.Now(), "task.Date:", task.Date, "task.Repeat:", task.Repeat)
+	logger.Log.Info("NextDate input - now in format:", slog.String("time", time.Now().Format(time.Layout)), "task.Date:", task.Date, "task.Repeat:", task.Repeat)
 
 	if task.Repeat != "" {
 
@@ -380,7 +380,7 @@ func SignInHandler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   2 * 60 * 60,
 		Secure:   false,
 	})
-	logger.Log.Info("Token установлен, пользователь вошел в систему")
+	logger.Log.Info("Token установлен, пользователь вошел в систему", slog.String("info:", "Token установлен, пользователь вошел в систему"))
 
 	MYTOKEN = token
 	w.WriteHeader(http.StatusOK)
