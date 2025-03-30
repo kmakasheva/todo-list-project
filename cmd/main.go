@@ -34,7 +34,7 @@ func main() {
 	fmt.Printf("starting server on port %s\n", port)
 	err = http.ListenAndServe(":"+port, r)
 	if err != nil {
-		Log.Error("Error listening the port %v", err)
+		Log.Error("Error listening the port %v", logger.Err(err))
 		os.Exit(1)
 	}
 }
