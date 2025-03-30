@@ -46,32 +46,32 @@ func CreateDB() *sql.DB {
 		if os.IsNotExist(err) {
 			install = true
 		} else {
-			logger.Log.Error("error:", err)
+			logger.Log.Error("error:", logger.Err(err))
 			os.Exit(1)
 		}
 	}
 
 	_, err = os.Create(dbFile)
 	if err != nil {
-		logger.Log.Error("Error creating database file", err)
+		logger.Log.Error("Error creating database file", logger.Err(err))
 		os.Exit(1)
 	}
 
 	db, err := OpenDB(dbFile)
 	if err != nil {
-		logger.Log.Error("error while connection to db")
+		logger.Log.Error("error while connection to db", logger.Err(err))
 		os.Exit(1)
 	}
 
 	_, err = db.Exec(CreateTableQuery)
 	if err != nil {
-		logger.Log.Error("Error creating table:", err)
+		logger.Log.Error("Error creating table:", logger.Err(err))
 		os.Exit(1)
 	}
 	if install {
 		_, err = db.Exec(CreateIndex)
 		if err != nil {
-			logger.Log.Error("Error creating index by date:", err)
+			logger.Log.Error("Error creating index by date:", logger.Err(err))
 			os.Exit(1)
 		}
 	}

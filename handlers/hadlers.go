@@ -9,6 +9,7 @@ import (
 	"github.com/kmakasheva/todo-list-project/domain"
 	"github.com/kmakasheva/todo-list-project/logger"
 	"github.com/kmakasheva/todo-list-project/services"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -28,7 +29,7 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
 		http.Error(w, `{"error":"Invalid JSON"}`, http.StatusBadRequest)
-		logger.Log.Error("Invalid JSON")
+		logger.Log.Error("Invalid JSON", logger.Err(err))
 		return
 	}
 	defer r.Body.Close()
@@ -39,7 +40,7 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := time.Parse("20060102", task.Date); err != nil {
 		http.Error(w, `{"error":"Date format seems incorrect"}`, http.StatusBadRequest)
-		logger.Log.Error("Date format seems incorrect")
+		logger.Log.Error("Date format seems incorrect", logger.Err(err))
 		return
 	}
 
@@ -50,7 +51,7 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 			nextDate, err := services.NextDate(time.Now(), time.Now().AddDate(0, 0, 1).Format("20060102"), task.Repeat)
 			if err != nil {
 				http.Error(w, `{"error":"something went wrong"}`, http.StatusBadRequest)
-				logger.Log.Error("something went wrong")
+				logger.Log.Error("something went wrong", logger.Err(err))
 				return
 			}
 			task.Date = nextDate
@@ -60,26 +61,26 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if task.Title == "" {
 		http.Error(w, `{"error": "title is empty"}`, http.StatusBadRequest)
-		logger.Log.Error("title is empty")
+		logger.Log.Error("title is empty", slog.String("error", "title is empty"))
 		return
 	}
 
 	res, err := db.Exec(d.InsertData, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
 		http.Error(w, `{"error":"Mistakes while data processing"}`, http.StatusBadRequest)
-		logger.Log.Error("Mistakes while data processing")
+		logger.Log.Error("Mistakes while data processing", logger.Err(err))
 		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
 		http.Error(w, `{"error":"error while taking id"}`, http.StatusBadRequest)
-		logger.Log.Error("error while taking id")
+		logger.Log.Error("error while taking id", logger.Err(err))
 		return
 	}
 	_, err = db.Exec(d.UpdateData, task.Date, id)
 	if err != nil {
 		http.Error(w, `{"error":"error while updating data in db"}`, http.StatusBadRequest)
-		logger.Log.Error("error while updating data in db")
+		logger.Log.Error("error while updating data in db", logger.Err(err))
 		return
 	}
 
@@ -90,18 +91,16 @@ func PostTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task domain.Task
-	//taskMap := make(map[string]string, 0)
 	idString := r.URL.Query().Get("id")
 	if idString == "" {
 		http.Error(w, `{"error":"Не указан идентификатор"}`, http.StatusBadRequest)
-		//taskMap["error"] = "Не указан идентификатор"
-		logger.Log.Error("Не указан идентификатор")
+		logger.Log.Error("Не указан идентификатор", slog.String("error", "Не указан идентификатор"))
 		return
 	}
 	id, err := strconv.Atoi(idString)
 	if err != nil {
 		http.Error(w, `{"error":"error while converting id to int"}`, http.StatusBadRequest)
-		logger.Log.Error("error while converting id to int")
+		logger.Log.Error("error while converting id to int", logger.Err(err))
 		return
 	}
 
@@ -109,10 +108,10 @@ func GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 	if err := row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, `{"error":"Задача не найдена"}`, http.StatusNotFound)
-			logger.Log.Error("Задача не найдена")
+			logger.Log.Error("Задача не найдена", logger.Err(err))
 		} else {
 			http.Error(w, `{"error":"err while selecting task"}`, http.StatusInternalServerError)
-			logger.Log.Error("err while selecting task")
+			logger.Log.Error("err while selecting task", logger.Err(err))
 		}
 		return
 	}
@@ -133,7 +132,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		EmptySearchRows, err := db.Query(d.GetTasks, 10)
 		if err != nil {
 			http.Error(w, `{"error":"error while getting sorted tasks"}`, http.StatusInternalServerError)
-			logger.Log.Error("error while getting sorted tasks")
+			logger.Log.Error("error while getting sorted tasks", logger.Err(err))
 			return
 		}
 		rows = EmptySearchRows
@@ -142,14 +141,14 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		dateTime, err := time.Parse(`02.01.2006`, search)
 		if err != nil {
 			http.Error(w, `{"error":"error while converting seacrh time from URL"}`, http.StatusBadRequest)
-			logger.Log.Error("error while converting seacrh time from URL")
+			logger.Log.Error("error while converting seacrh time from URL", logger.Err(err))
 			return
 		}
 		DateRows, err := db.Query(d.GetTasksByDate, sql.Named("date", dateTime.Format(`20060102`)),
 			sql.Named("limit", 10))
 		if err != nil {
 			http.Error(w, `{"error":"error while getting tasks by date"}`, http.StatusBadRequest)
-			logger.Log.Error("error while getting tasks by date")
+			logger.Log.Error("error while getting tasks by date", logger.Err(err))
 			return
 		}
 		rows = DateRows
@@ -159,7 +158,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		WordsRows, err := db.Query(d.GetTasksByWords, sql.Named("word", search), sql.Named("limit", 10))
 		if err != nil {
 			http.Error(w, `{"error":"error while selecting tasks by words"}`, http.StatusBadRequest)
-			logger.Log.Error("error while selecting tasks by words")
+			logger.Log.Error("error while selecting tasks by words", logger.Err(err))
 			return
 		}
 		rows = WordsRows
@@ -170,7 +169,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var task domain.Task
 		if err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
 			http.Error(w, `{"error":"error while scanning rows"}`, http.StatusBadGateway)
-			logger.Log.Error("error while scanning rows")
+			logger.Log.Error("error while scanning rows", logger.Err(err))
 			return
 		}
 		tasks = append(tasks, task)
@@ -178,7 +177,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := rows.Err(); err != nil {
 		http.Error(w, `{"error":"error while iteration"}`, http.StatusInternalServerError)
-		logger.Log.Error("error while iteration")
+		logger.Log.Error("error while iteration", logger.Err(err))
 		return
 	}
 	defer rows.Close()
@@ -198,7 +197,7 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]any{"error": "error while decoding body"})
-		logger.Log.Error("error while decoding body")
+		logger.Log.Error("error while decoding body", logger.Err(err))
 		return
 	}
 
@@ -212,7 +211,7 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec(d.GetTaskByID, sql.Named("id", updatedTask.ID))
 	if err != nil {
 		http.Error(w, `{"error":"Задача не существует"}`, http.StatusNotFound)
-		logger.Log.Error("Задача не существует")
+		logger.Log.Error("Задача не существует", logger.Err(err))
 		return
 	}
 
@@ -225,14 +224,14 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, `{"error":"Задача не найдена"}`, http.StatusInternalServerError)
-		logger.Log.Error("Задача не найдена")
+		logger.Log.Error("Задача не найдена", logger.Err(err))
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil || rowsAffected == 0 {
 		http.Error(w, `{"error":"Задача не найдена"}`, http.StatusNotFound)
-		logger.Log.Error("Задача не найдена")
+		logger.Log.Error("Задача не найдена", logger.Err(err))
 		return
 	}
 
@@ -252,14 +251,14 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	nowTime, err := time.Parse("20060102", now)
 	if err != nil {
 		http.Error(w, "Invalid date format", http.StatusBadRequest)
-		logger.Log.Error("Invalid date format")
+		logger.Log.Error("Invalid date format", logger.Err(err))
 		return
 	}
 
 	nextDate, err := services.NextDate(nowTime, date, repeat)
 	if err != nil {
 		http.Error(w, "Error while calculating next data:", http.StatusInternalServerError)
-		logger.Log.Error("Error while calculating next data")
+		logger.Log.Error("Error while calculating next data", logger.Err(err))
 		return
 	}
 	w.Write([]byte(nextDate))
@@ -272,14 +271,14 @@ func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idString)
 	if err != nil {
 		http.Error(w, `{"error":"error while converting id from str to int"}`, http.StatusBadRequest)
-		logger.Log.Error("error while converting id from str to int")
+		logger.Log.Error("error while converting id from str to int", logger.Err(err))
 		return
 	}
 
 	_, err = db.Exec(d.DeleteTask, sql.Named("id", id))
 	if err != nil {
 		http.Error(w, `{"error":"error while deleting not actual task"}`, http.StatusBadRequest)
-		logger.Log.Error("error while deleting not actual task")
+		logger.Log.Error("error while deleting not actual task", logger.Err(err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -292,7 +291,7 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idString)
 	if err != nil {
 		http.Error(w, `{"error":"error while converting id from str to int"}`, http.StatusBadRequest)
-		logger.Log.Error("error while converting id from str to int")
+		logger.Log.Error("error while converting id from str to int", logger.Err(err))
 		return
 	}
 
@@ -313,7 +312,7 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		updDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			http.Error(w, `{"error":"error while calculating a new date"}`, http.StatusBadRequest)
-			logger.Log.Error("error while calculating a new date")
+			logger.Log.Error("error while calculating a new date", logger.Err(err))
 			return
 		}
 
@@ -326,14 +325,14 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			http.Error(w, `{"error":"error while updating date to new"}`, http.StatusInternalServerError)
-			logger.Log.Error("error while updating date to new")
+			logger.Log.Error("error while updating date to new", logger.Err(err))
 			return
 		}
 	} else {
 		_, err := db.Exec(d.DeleteTask, sql.Named("id", id))
 		if err != nil {
 			http.Error(w, `{"error":"error while deleting task"}`, http.StatusBadRequest)
-			logger.Log.Error("error while deleting task")
+			logger.Log.Error("error while deleting task", logger.Err(err))
 			return
 		}
 	}
@@ -345,26 +344,26 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 func SignInHandler(w http.ResponseWriter, r *http.Request) {
 	if os.Getenv("TOD0_PASSWORDD") == "" {
 		http.Error(w, `{"error":"Пароль не установлен в переменных окружения"}`, http.StatusInternalServerError)
-		logger.Log.Error("Пароль не установлен в переменных окружения")
+		logger.Log.Error("Пароль не установлен в переменных окружения", slog.String("error", "Пароль не установлен в переменных окружения"))
 		return
 	}
 	var request auth.PasswordRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, `{"error":"error while decoding inputted password"}`, http.StatusBadRequest)
-		logger.Log.Error("error while decoding inputted password")
+		logger.Log.Error("error while decoding inputted password", logger.Err(err))
 		return
 	}
 	if request.Password != os.Getenv("TOD0_PASSWORDD") {
 		http.Error(w, `{"error":"Неверный пароль"}`, http.StatusUnauthorized)
-		logger.Log.Error("error Неверный пароль")
+		logger.Log.Error("error Неверный пароль", logger.Err(err))
 		return
 	}
 
 	token, err := auth.CreateJWT()
 	if err != nil {
 		http.Error(w, `{"error":"error getting cookie token"}`, http.StatusUnauthorized)
-		logger.Log.Error("error getting cookie token")
+		logger.Log.Error("error getting cookie token", logger.Err(err))
 		return
 	}
 
